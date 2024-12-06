@@ -1,0 +1,79 @@
+Run the contents of this file in the arduino app and connect the model
+
+#include <Servo.h>
+Servo servo1;
+const int trigPin = 12;
+const int echoPin = 11;
+long duration;
+int distance = 0;
+int potPin = A0;  // Analog pin connected to HW-390 moisture sensor
+int soil = 0;
+int fsoil;
+int maxDryValue = 595;  // Threshold value for classifying dry and wet waste
+int Ultra_Distance = 15;  // Distance threshold in cm between ultrasonic sensor and moisture sensor
+
+void setup() 
+{
+  Serial.begin(9600);
+  pinMode(trigPin, OUTPUT); 
+  pinMode(echoPin, INPUT); 
+  servo1.attach(8);
+  Serial.println("Soil Sensor     Ultrasonic          Servo");
+}
+
+void loop() 
+{
+  distance = 0;  // Reset distance at the start of each loop
+  for (int i = 0; i < 2; i++)
+  {
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(7);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(10);
+    duration = pulseIn(echoPin, HIGH);
+    distance += duration * 0.034 / 2;  // Sum up distances
+    delay(10);
+  }
+  distance /= 2;  // Get the average distance
+
+  if (distance < Ultra_Distance && distance > 1)
+  {
+    delay(1000);
+    fsoil = 0;  // Reset fsoil before summing
+    for (int i = 0; i < 3; i++)
+    {
+      soil = analogRead(potPin);
+      soil = constrain(soil, 0, 1023);  // Adjusted for HW-390 sensor full range
+      fsoil += soil;  // Sum the values
+      delay(75);
+    }
+    fsoil /= 3;  // Get the average
+
+    Serial.print("Moisture Level: ");
+    Serial.print(fsoil);
+    Serial.print("    Distance: ");
+    Serial.print(distance);
+    Serial.print(" cm");
+
+    // Corrected condition: classify based on fsoil value
+    if (fsoil <= maxDryValue)  // fsoil <= 595 indicates WET Waste
+    {
+      delay(1000);
+      Serial.println("     ==> WET Waste ");
+      servo1.write(170);  // Move servo to position for wet waste
+      delay(3000);
+    } 
+    else  // fsoil > 595 indicates DRY Waste
+    {
+      delay(1000);
+      Serial.println("     ==> DRY Waste ");
+      servo1.write(10);  // Move servo to position for dry waste
+      delay(3000);
+    }
+
+    servo1.write(90);  // Reset servo to neutral position
+    delay(1000);  // Allow time for servo movement
+  }
+}
